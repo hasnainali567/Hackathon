@@ -1,0 +1,26 @@
+@import 'tailwindcss';
+
+
+@theme {
+    --color-bg-primary: #FFFFFF;
+    --color-bg-secondary: #F6F7F8;
+    --color-accent: #137FEC;
+    --color-green: #22C55E;
+    --color-dark-bg-primary: #17212B;
+    --color-dark-bg-secondary: #101922;
+    --color-danger: #DC1D1D;
+    --color-dark-danger: #F06D6E;
+    --color-placeholder: #434D5A;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+* {
+    font-family: Poppins, sans-serif;
+}
+
+
+body {
+    background-color: #101922;
+    color: #000000;
+}
