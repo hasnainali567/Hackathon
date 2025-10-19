@@ -1,16 +1,20 @@
-import React from 'react'
-import { useAuth } from '../context/AuthContext'
+import React, { useEffect, useState } from 'react'
 import { FaAngleDown, FaArrowUp, FaChevronDown, FaChevronLeft } from 'react-icons/fa'
 import { GoogleGenAI } from '@google/genai'
 import toast from 'react-hot-toast'
 import { CodeBlock } from '../components/CodeBlock'
 import { Editor } from '@monaco-editor/react'
 import beautify from 'js-beautify'
+import { arrayUnion, doc, updateDoc } from 'firebase/firestore'
+import { useAuth } from '../context/AuthContext'
+import { auth, db } from '../config/firebase/firebase'
 
 const Home = () => {
 
   const [input, setInput] = React.useState('');
   const [response, setResponse] = React.useState(null);
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false)
 
 
 
@@ -94,21 +98,42 @@ Now generate a new JSON response for this idea:
 "${idea}"
 Tone: ${tone}`
 
-    toast.loading("Generating your startup...", { id: "gen-startup" });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-001',
-      contents: prompt,
-    })
+    try {
+      setLoading(true)
+
+      toast.loading("Generating your startup...", { id: "gen-startup" });
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.0-flash-001',
+        contents: prompt,
+      })
 
 
 
-    let respond = (response?.text?.replace('```json', '')?.replace('```', ''));
-    respond = JSON.parse(respond);
-    setResponse(respond);
-    toast.success("Startup generated!", { id: "gen-startup" });
-    e.target.reset();
+      let respond = (response?.text?.replace('```json', '')?.replace('```', ''));
+      respond = JSON.parse(respond);
+      setResponse(respond);
+      const user = auth.currentUser;
+      await updateDoc(doc(db, "users", user.uid), {
+        lastGeneratedStartup: arrayUnion(respond)
+      });
+      setLoading(false)
+      toast.success("Startup generated!", { id: "gen-startup" });
+      e.target.reset();
+    } catch (error) {
+      toast.error('error occoured')
+      console.log(error);
+
+    }
   }
 
+  const divRef = React.useRef(null);
+
+  useEffect(() => {
+    if (response && divRef.current) {
+      divRef.current.style = response.landingPage?.css || "";
+      divRef.current.innerHTML = response.landingPage?.html || "";
+    } 
+  }, [response]);
 
 
 
@@ -119,13 +144,13 @@ Tone: ${tone}`
   return (
     <div className='w-full flex flex-col px-10 text-white bg-bg-secondary dark:bg-dark-bg-secondary'>
       <div className='w-full min-h-[90vh] flex flex-col items-center justify-center md:p-5'>
-        <div className='h-100 flex flex-col items-center justify-center'>
+        <div className=' flex flex-col items-center justify-center'>
           <h1 className='text-3xl md:text-4xl font-semibold text-center'>What do you want to Create ?</h1>
           <p className='text-white/50 mt-2 text-sm md:text-base text-center'>Start building with a single prompt. No coding needed.</p>
         </div>
         <form onSubmit={handlePrompt} className='w-full flex items-center justify-center mt-8 relative text-white max-w-200 border-1 border-white/20 rounded-2xl overflow-hidden'>
           <div className='bg-[#383838] flex items-center justify-between  pr-2 absolute left-4 bottom-4 rounded-lg '>
-            <select name="tone" id="tone" className=' text-base p-2 outline-0 rounded-md appearance-none '>
+            <select name="tone" id="tone" className=' text-base p-2 outline-0 rounded-md appearance-none bg-[#383838] text-white cursor-pointer'>
               <option value="creative">Creative</option>
               <option value="professional">Professional</option>
               <option value="casual">Casual</option>
@@ -133,7 +158,7 @@ Tone: ${tone}`
             </select>
             <FaChevronDown />
           </div>
-          <button className='absolute right-4 bottom-4 bg-white text-black p-2 rounded-full cursor-pointer'><FaArrowUp size={18} /></button>
+          <button disabled={loading} className='absolute right-4 bottom-4 bg-white text-black p-2 rounded-full cursor-pointer'><FaArrowUp size={18} /></button>
           <textarea value={input} onChange={(e) => setInput(e.target.value)} placeholder='Enter your idea here....' name="prompt" id="prompt" rows={4} className='resize-none  bg-[#121212] w-full   text-base p-4 px-6 outline-0 rounded-2xl' >
 
           </textarea>
@@ -159,6 +184,8 @@ Tone: ${tone}`
                 })}
                 theme="vs-dark"
               />
+
+              
               {/* Logo description */}
               <div className="max-w-3xl mx-auto mt-6 bg-white/5 p-4 rounded-lg border border-white/10">
                 <h3 className="text-xl font-semibold mb-2">Logo Concept</h3>
@@ -172,7 +199,21 @@ Tone: ${tone}`
                 )}
               </div>
             </div>
+
           )}
+
+          {/* <div ref={divRef} className='my-5 p-5 h-100 w-full '>
+            {response && (
+              response.landingPage?.html
+            )}
+          </div> */}
+          <div className='flex flex-wrap'>
+            {user && user?.lastGeneratedStartup?.map((startup, key) => (
+              <div key={key}>
+                <h2>{startup.name}</h2>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

@@ -53,7 +53,6 @@ const AuthProvider = ({ children }) => {
     const logOut = async () => {
         await signOut(auth)
         console.log('signout');
-        
     }
 
     return (
